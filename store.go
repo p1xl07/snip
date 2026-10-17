@@ -65,6 +65,7 @@ func OpenStore(filePath string) (*Store, error) {
 		saveCh:   make(chan struct{}, 1),
 		lockFile: lockFile,
 	}
+
 	if err := s.load(); err != nil {
 		if releaseErr := releaseStoreLock(lockFile); releaseErr != nil {
 			log.Printf("could not release lock for %s: %v", filePath, releaseErr)
