@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -563,7 +565,6 @@ func TestReservedAliasesRejected(t *testing.T) {
 			t.Errorf("alias %q: failed to decode response: %v", alias, err)
 		}
 
-		// Ensure the reserved name was not stored in links
 		if link := srv.store.Get(alias); link != nil {
 			t.Errorf("alias %q should not be stored, found: %+v", alias, link)
 		}
@@ -592,3 +593,27 @@ func TestReservedAliasSubstringsAllowed(t *testing.T) {
 	}
 }
 
+func TestCorruptStoragePreserved(t *testing.T) {
+	storePath := filepath.Join(t.TempDir(), "bad.json")
+	if err := os.WriteFile(storePath, []byte("bad"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := OpenStore(storePath)
+	if err == nil {
+		if s != nil {
+			s.Close()
+		}
+		t.Fatal("expected an error for corrupt storage")
+	}
+	if s != nil {
+		s.Close()
+	}
+
+	if _, err := os.Stat(storePath + ".corrupt"); err != nil {
+		t.Fatalf("expected quarantined file: %v", err)
+	}
+	if _, err := os.Stat(storePath); !os.IsNotExist(err) {
+		t.Fatalf("expected original corrupt file to be moved, stat error: %v", err)
+	}
+}
