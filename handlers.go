@@ -185,10 +185,22 @@ func (s *Server) deleteLink(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) listLinks(w http.ResponseWriter, r *http.Request) {
-	links := s.store.List()
+	allLinks := s.store.List()
+	now := time.Now()
+
+	// Exclude expired links from the response.
+	links := make([]*Link, 0, len(allLinks))
+	for _, link := range allLinks {
+		if link.ExpiresAt == nil || now.Before(*link.ExpiresAt) {
+			links = append(links, link)
+		}
+	}
+
+	// Sort newest links first.
 	sort.Slice(links, func(i, j int) bool {
 		return links[i].CreatedAt.After(links[j].CreatedAt)
 	})
+
 	limit := 20
 	if q := r.URL.Query().Get("limit"); q != "" {
 		n, err := strconv.Atoi(q)
@@ -198,8 +210,10 @@ func (s *Server) listLinks(w http.ResponseWriter, r *http.Request) {
 		}
 		limit = n
 	}
+
 	if limit < len(links) {
 		links = links[:limit]
 	}
+
 	writeJSON(w, http.StatusOK, links)
 }
